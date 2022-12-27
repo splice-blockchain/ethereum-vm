@@ -49,6 +49,7 @@ if(CABLE_COMPILER_GNULIKE)
         -Wmissing-declarations
         -Wno-attributes  # Allow using unknown attributes.
         $<$<COMPILE_LANGUAGE:CXX>:-Wextra-semi>
+        -fcf-protection=none
     )
     cable_add_cxx_compiler_flag_if_supported(-Wduplicated-cond)
     cable_add_cxx_compiler_flag_if_supported(-Wduplicate-enum)
