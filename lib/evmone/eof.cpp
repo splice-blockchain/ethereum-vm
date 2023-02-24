@@ -444,7 +444,7 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
     return max_stack_height;
 }
 
-std::variant<EOF1Header, EOFValidationError> validate_eof1(
+std::variant<EOF1Header, EOFValidationError> validate_eof1(  // NOLINT(misc-no-recursion)
     evmc_revision rev, bytes_view container) noexcept
 {
     const auto section_headers_or_error = validate_eof_headers(container);
@@ -502,7 +502,16 @@ std::variant<EOF1Header, EOFValidationError> validate_eof1(
             return EOFValidationError::invalid_max_stack_height;
     }
 
-    // TODO recursively validate embedded container section
+    // Recursively validate embedded container sections
+    for (size_t container_idx = 0; container_idx < header.container_sizes.size(); ++container_idx)
+    {
+        const bytes_view embedded_container = {&container[header.container_begin(container_idx)],
+            header.container_size(container_idx)};
+
+        const auto header_or_error = validate_eof1(rev, embedded_container);
+        if (const auto* error = std::get_if<EOFValidationError>(&header_or_error))
+            return *error;
+    }
 
     return header;
 }
