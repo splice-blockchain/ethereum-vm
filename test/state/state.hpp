@@ -128,4 +128,8 @@ struct TransactionReceipt
 /// Defines how to RLP-encode a Log.
 [[nodiscard]] bytes rlp_encode(const Log& log);
 
+/// Defines how to RLP-decode Transaction.
+/// Return true on success and false on error.
+[[nodiscard]] bool rlp_decode(Transaction& out, const bytes_view& data);
+
 }  // namespace evmone::state

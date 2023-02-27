@@ -227,4 +227,67 @@ std::variant<TransactionReceipt, std::error_code> transition(
                         bytes_view(receipt.logs_bloom_filter), receipt.logs);
 }
 
+[[nodiscard]] bool rlp_decode(Transaction& out, const bytes_view& data)
+{
+    using namespace rlp;
+    if (data.size() == 0)
+        throw std::runtime_error("rlp: decoding error");
+
+    if (data[0] == 0x02)
+        out.kind = Transaction::Kind::eip1559;
+
+    if (out.kind == Transaction::Kind::legacy)
+    {
+        if (const auto l = decode(data); l.size() == 1 && l[0].is_list)
+        {
+            auto elems = decode(l[0].data);
+            if (elems.size() == 9)
+            {
+                out.nonce = load<uint64_t>(elems[0].data);
+                out.max_gas_price = load<uint256>(elems[1].data);
+                out.max_priority_gas_price = out.max_gas_price;
+                out.gas_limit = static_cast<int64_t>(load<uint64_t>(elems[2].data));
+                out.to = load<address>(elems[3].data);
+                out.value = load<uint256>(elems[4].data);
+                out.data = elems[5].data;
+
+                const auto enc_v = load<uint256>(elems[6].data);
+                out.v = (enc_v - 35) % 2 == 0 ? 0 : 1;
+                out.chain_id = ((enc_v - 35 - out.v) / 2)[0];
+
+                out.r = load<uint256>(elems[7].data);
+                out.s = load<uint256>(elems[8].data);
+
+                return true;
+            }
+        }
+    }
+    else
+    {
+        if (const auto l = decode(data.substr(1)); l.size() == 1 && l[0].is_list)
+        {
+            auto elems = decode(l[0].data);
+            if (elems.size() == 12)
+            {
+                out.chain_id = load<uint64_t>(elems[0].data);
+                out.nonce = load<uint64_t>(elems[1].data);
+                out.max_priority_gas_price = load<uint256>(elems[2].data);
+                out.max_gas_price = load<uint256>(elems[3].data);
+                out.gas_limit = static_cast<int64_t>(load<uint64_t>(elems[4].data));
+                out.to = load<address>(elems[5].data);
+                out.value = load<uint256>(elems[6].data);
+                out.data = elems[7].data;
+                out.access_list = {};  // TODO: Implement access list decoding
+                out.v = load<uint8_t>(elems[9].data);
+                out.r = load<uint256>(elems[10].data);
+                out.s = load<uint256>(elems[11].data);
+
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 }  // namespace evmone::state

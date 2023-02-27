@@ -112,4 +112,132 @@ inline bytes internal::encode_container(InputIterator begin, InputIterator end)
         content += encode(*it);
     return wrap_list(content);
 }
+
+namespace
+{
+template <typename T>
+inline T load(bytes_view input, std::false_type)
+{
+    if (input.size() > sizeof(T))
+        throw std::out_of_range("load: input too big");
+
+    T x{};
+    std::memcpy(&intx::as_bytes(x)[sizeof(T) - input.size()], input.data(), input.size());
+    return x;
+}
+
+template <typename T>
+inline T load(bytes_view input, std::true_type)
+{
+    if (input.size() > sizeof(T))
+        throw std::runtime_error("load: input too big");
+
+    T x{};
+    std::memcpy(&intx::as_bytes(x)[sizeof(T) - input.size()], input.data(), input.size());
+    x = intx::to_big_endian(x);
+    return x;
+}
+}  // namespace
+
+template <typename T>
+inline T load(bytes_view input)
+{
+    constexpr auto is_integral = std::bool_constant < std::is_integral<T>() || std::is_same_v < T,
+                   intx::uint256 >> ();
+    return load<T>(input, is_integral);
+}
+
+// RLP decoding implementation based on
+// https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/#definition
+
+namespace
+{
+// <<offset, data_length>, type(false == string, true == list)>
+inline std::pair<std::pair<size_t, size_t>, bool> decode_length(bytes_view input)
+{
+    const auto length = input.size();
+
+    if (length == 0)
+        throw std::runtime_error("rlp: input is null");
+
+    const uint8_t prefix = input[0];
+
+    if (prefix <= 0x7f)
+        return {{0, 1}, false};
+    else if (prefix <= 0xb7)
+    {
+        if (prefix - 0x80 >= length)
+            throw std::runtime_error("rlp: decoding error");
+        return {{1, prefix - 0x80}, false};
+    }
+    else if (prefix <= 0xbf)
+    {
+        const uint8_t len_of_str_len = prefix - 0xb7;
+        if (len_of_str_len >= length)
+            throw std::runtime_error("rlp: decoding error");
+        const auto str_len = evmone::rlp::load<uint64_t>(input.substr(1, len_of_str_len));
+        if (str_len >= length)
+            throw std::runtime_error("rlp: decoding error");
+        return {{1 + len_of_str_len, str_len}, false};
+    }
+    else if (prefix <= 0xf7)
+    {
+        const uint8_t list_len = prefix - 0xc0;
+        if (list_len >= length)
+            throw std::runtime_error("rlp: decoding error");
+        return {{1, list_len}, true};
+    }
+    else if (prefix <= 0xff)
+    {
+        const uint8_t len_of_list_len = prefix - 0xf7;
+        if (len_of_list_len >= length)
+            throw std::runtime_error("rlp: decoding error");
+        const auto list_len = evmone::rlp::load<uint64_t>(input.substr(1, len_of_list_len));
+        if (list_len >= length)
+            throw std::runtime_error("rlp: decoding error");
+        return {{1 + len_of_list_len, list_len}, true};
+    }
+
+    // Impossible.
+    return {};
+}
+}  // namespace
+
+struct RLPElement
+{
+    bool is_list;
+    bytes_view data;
+};
+
+template <typename T>
+inline T decode(const bytes_view& input)
+{
+    T t{};
+    if (rlp_decode(t, input))
+        return t;
+    throw std::runtime_error("rlp: decoding error");
+}
+
+/// Decodes RLP primitives
+inline std::vector<RLPElement> decode(bytes_view input)
+{
+    if (input.size() == 0)
+        return {};
+
+    std::vector<RLPElement> output;
+
+    const auto [offset_size, is_list] = decode_length(input);
+    const auto [offset, size] = offset_size;
+
+    if (!is_list)
+        output.push_back(RLPElement{false, input.substr(offset, size)});
+    else
+        output.push_back(RLPElement{true, input.substr(offset, size)});
+
+    const auto rest = decode(input.substr(offset + size));
+    output.insert(output.end(), rest.begin(), rest.end());
+
+    return output;
+}
+
 }  // namespace evmone::rlp
