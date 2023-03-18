@@ -137,9 +137,15 @@ inline constexpr auto pop = noop;
 inline constexpr auto jumpdest = noop;
 
 template <evmc_status_code Status>
-inline TermResult stop_impl(
-    StackTop /*stack*/, int64_t gas_left, ExecutionState& /*state*/) noexcept
+inline TermResult stop_impl(StackTop /*stack*/, int64_t gas_left, ExecutionState& state) noexcept
 {
+    // STOP is forbidden inside CREATE3 context
+    if constexpr (Status == EVMC_SUCCESS)
+    {
+        if (state.msg->kind == EVMC_CREATE3)
+            return {EVMC_UNDEFINED_INSTRUCTION, gas_left};
+    }
+
     return {Status, gas_left};
 }
 inline constexpr auto stop = stop_impl<EVMC_SUCCESS>;
