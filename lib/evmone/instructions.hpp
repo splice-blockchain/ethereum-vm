@@ -916,6 +916,19 @@ inline Result dataload(StackTop stack, int64_t gas_left, ExecutionState& state) 
     return {EVMC_SUCCESS, gas_left};
 }
 
+inline code_iterator dataloadn(StackTop stack, ExecutionState& state, code_iterator pos) noexcept
+{
+    const auto index = read_uint16_be(&pos[1]);
+
+    const auto begin = static_cast<size_t>(index * 32);
+    uint8_t data[32] = {};
+    for (size_t i = 0; i < 32; ++i)
+        data[i] = state.data[begin + i];
+
+    stack.push(intx::be::load<uint256>(data));
+    return pos + 3;
+}
+
 inline Result datacopy(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     const auto& mem_index = stack.pop();
