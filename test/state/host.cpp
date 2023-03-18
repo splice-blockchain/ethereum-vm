@@ -266,6 +266,17 @@ evmc::Result Host::execute_message(const evmc_message& msg) noexcept
 
     // Copy of the code. Revert will invalidate the account.
     const auto code = dst_acc != nullptr ? dst_acc->code : bytes{};
+
+    if (msg.kind == EVMC_DELEGATECALL)
+    {
+        // TODO: does the sender always have code here? or is this function used for EOAs too?
+        const auto& sender = m_state.get(msg.sender);
+
+        // DELEGATECALL initiator and destination both must be either legacy or EOF
+        if (is_eof_container(code) != is_eof_container(sender.code))
+            return evmc::Result{EVMC_FAILURE};
+    }
+
     return m_vm.execute(*this, m_rev, msg, code.data(), code.size());
 }
 
