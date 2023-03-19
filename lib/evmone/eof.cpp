@@ -516,17 +516,6 @@ std::variant<EOF1Header, EOFValidationError> validate_eof1(  // NOLINT(misc-no-r
             return EOFValidationError::invalid_max_stack_height;
     }
 
-    // Recursively validate embedded container sections
-    for (size_t container_idx = 0; container_idx < header.container_sizes.size(); ++container_idx)
-    {
-        const bytes_view embedded_container = {&container[header.container_begin(container_idx)],
-            header.container_size(container_idx)};
-
-        const auto header_or_error = validate_eof1(rev, embedded_container);
-        if (const auto* error = std::get_if<EOFValidationError>(&header_or_error))
-            return *error;
-    }
-
     return header;
 }
 
@@ -609,6 +598,14 @@ EOF1Header read_valid_eof1_header(bytes_view container)
 
 bool append_data_section(bytes& container, bytes_view aux_data)
 {
+    // Validate section header first to make sure we can append data section
+    if (!is_eof_container(container) || get_eof_version(container) != 1)
+        return false;
+
+    const auto section_headers_or_error = validate_eof_headers(container);
+    if (std::holds_alternative<EOFValidationError>(section_headers_or_error))
+        return false;
+
     const auto header = read_valid_eof1_header(container);
     const auto new_data_size = header.data_size + aux_data.size();
     if (new_data_size > std::numeric_limits<uint16_t>::max())
