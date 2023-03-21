@@ -240,8 +240,10 @@ std::variant<std::vector<EOFCodeType>, EOFValidationError> validate_types(
     return types;
 }
 
-EOFValidationError validate_instructions(evmc_revision rev, bytes_view code) noexcept
+EOFValidationError validate_instructions(
+    evmc_revision rev, const EOF1Header& header, size_t code_idx, bytes_view container) noexcept
 {
+    const bytes_view code{header.get_code(container, code_idx)};
     assert(!code.empty());  // guaranteed by EOF headers validation
 
     const auto& cost_table = baseline::get_baseline_cost_table(rev, 1);
@@ -261,6 +263,18 @@ EOFValidationError validate_instructions(evmc_revision rev, bytes_view code) noe
             if (count < 1)
                 return EOFValidationError::invalid_rjumpv_count;
             i += static_cast<size_t>(1 /* count */ + count * 2 /* tbl */);
+        }
+        else if (op == OP_CREATE3 || op == OP_RETURNCONTRACT)
+        {
+            if (i + 1 < code.size())
+            {
+                const auto container_idx = code[i + 1];
+                if (container_idx >= header.container_sizes.size())
+                    return EOFValidationError::invalid_container_section_index;
+                ++i;
+            }
+            else
+                return EOFValidationError::truncated_instruction;
         }
         else
             i += instr::traits[op].immediate_size;
@@ -487,7 +501,7 @@ std::variant<EOF1Header, EOFValidationError> validate_eof1(  // NOLINT(misc-no-r
 
     for (size_t code_idx = 0; code_idx < header.code_sizes.size(); ++code_idx)
     {
-        const auto error_instr = validate_instructions(rev, header.get_code(container, code_idx));
+        const auto error_instr = validate_instructions(rev, header, code_idx, container);
         if (error_instr != EOFValidationError::success)
             return error_instr;
 
@@ -707,6 +721,8 @@ std::string_view get_error_message(EOFValidationError err) noexcept
         return "invalid_code_section_index";
     case EOFValidationError::too_many_container_sections:
         return "too_many_container_sections";
+    case EOFValidationError::invalid_container_section_index:
+        return "invalid_container_section_index";
     case EOFValidationError::impossible:
         return "impossible";
     }

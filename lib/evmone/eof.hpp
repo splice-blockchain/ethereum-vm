@@ -109,6 +109,7 @@ enum class EOFValidationError
     stack_underflow,
     invalid_code_section_index,
     too_many_container_sections,
+    invalid_container_section_index,
 
     impossible,
 };
