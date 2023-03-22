@@ -253,6 +253,14 @@ evmc::Result Host::create(const evmc_message& msg) noexcept
     assert(gas_left >= 0);
 
     const bytes_view code{result.output_data, result.output_size};
+
+    assert(msg.kind != EVMC_CREATE3 || result.status_code != EVMC_SUCCESS || !code.empty());
+    //    if (msg.kind == EVMC_CREATE3 && result.status_code == EVMC_SUCCESS && code.empty())
+    //    {
+    //        m_state.get_accounts().erase(msg.recipient);
+    //        return result;
+    //    }
+
     if (m_rev >= EVMC_SPURIOUS_DRAGON && code.size() > max_code_size)
         return evmc::Result{EVMC_FAILURE};
 
