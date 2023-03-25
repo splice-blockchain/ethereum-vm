@@ -162,7 +162,7 @@ void register_benchmarks(std::span<const BenchmarkCase> benchmark_cases)
             for (auto& [vm_name, vm] : registered_vms)
             {
                 const auto name = std::string{vm_name} + "/total/" + case_name;
-                RegisterBenchmark(name.c_str(), [&vm = vm, &b, &input](State& state) {
+                RegisterBenchmark(name.c_str(), [&vm, &b, &input](State& state) {
                     bench_evmc_execute(state, vm, b.code, input.input, input.expected_output);
                 })->Unit(kMicrosecond);
             }
