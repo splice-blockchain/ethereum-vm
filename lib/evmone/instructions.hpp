@@ -929,6 +929,11 @@ inline code_iterator dataloadn(StackTop stack, ExecutionState& state, code_itera
     return pos + 3;
 }
 
+inline void datasize(StackTop stack, ExecutionState& state) noexcept
+{
+    stack.push(state.data.size());
+}
+
 inline Result datacopy(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
     const auto& mem_index = stack.pop();
@@ -955,11 +960,6 @@ inline Result datacopy(StackTop stack, int64_t gas_left, ExecutionState& state) 
     }
 
     return {EVMC_SUCCESS, gas_left};
-}
-
-inline void datasize(StackTop stack, ExecutionState& state) noexcept
-{
-    stack.push(state.data.size());
 }
 
 template <size_t NumTopics>

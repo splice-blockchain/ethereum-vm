@@ -113,9 +113,9 @@ constexpr bool instruction_only_in_evmone(evmc_revision rev, Opcode op) noexcept
     case OP_DUPN:
     case OP_SWAPN:
     case OP_DATALOAD:
+    case OP_DATALOADN:
     case OP_DATASIZE:
     case OP_DATACOPY:
-    case OP_DATALOADN:
         return true;
     default:
         return false;
