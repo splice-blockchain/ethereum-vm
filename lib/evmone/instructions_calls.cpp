@@ -203,11 +203,23 @@ Result create3(StackTop stack, int64_t gas_left, ExecutionState& state, code_ite
     state.return_data.clear();
     state.deploy_container.reset();
 
+    // Charge for initcode validation and hashing.
+    const auto initcode_word_cost = 8;
+    const auto initcode_cost = num_words(initcontainer.size()) * initcode_word_cost;
+    if ((gas_left -= initcode_cost) < 0)
+        return {EVMC_OUT_OF_GAS, gas_left};
+
     if (!check_memory(gas_left, state.memory, input_offset_u256, input_size_u256))
         return {EVMC_OUT_OF_GAS, gas_left};
 
     const auto input_offset = static_cast<size_t>(input_offset_u256);
     const auto input_size = static_cast<size_t>(input_size_u256);
+
+    // Charge for input data hashing.
+    const auto input_word_cost = 6;
+    const auto input_cost = num_words(input_size) * input_word_cost;
+    if ((gas_left -= input_cost) < 0)
+        return {EVMC_OUT_OF_GAS, gas_left};
 
     if (state.msg->depth >= 1024)
         return {EVMC_SUCCESS, gas_left};  // "Light" failure.
