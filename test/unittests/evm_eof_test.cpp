@@ -149,3 +149,163 @@ TEST_P(evm, eof_data_only_contract)
     execute(code + bytes(256, 0x01));
     EXPECT_STATUS(EVMC_INVALID_INSTRUCTION);
 }
+
+TEST_P(evm, eof1_dataload)
+{
+    // Data instructions are not implemented in Advanced.
+    if (is_advanced())
+        return;
+
+    rev = EVMC_CANCUN;
+    const auto data = bytes(8, 0x0) + bytes(8, 0x11) + bytes(8, 0x22) + bytes(8, 0x33) +
+                      bytes(8, 0xaa) + bytes(8, 0xbb) + bytes(8, 0xcc) + bytes(8, 0xdd);
+    const auto code = eof1_bytecode(calldataload(0) + OP_DATALOAD + ret_top(), 2, data);
+
+    execute(code, "00"_hex);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000111111111111111122222222222222223333333333333333"_hex);
+
+    execute(code, "0000000000000000000000000000000000000000000000000000000000000001"_hex);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "00000000000000111111111111111122222222222222223333333333333333aa"_hex);
+
+    execute(code, "0000000000000000000000000000000000000000000000000000000000000020"_hex);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccdddddddddddddddd"_hex);
+
+    execute(code, "0000000000000000000000000000000000000000000000000000000000000021"_hex);
+    EXPECT_STATUS(EVMC_INVALID_MEMORY_ACCESS);
+
+    execute(code, "0000000000000000000000000000000000000000000000000000000000000040"_hex);
+    EXPECT_STATUS(EVMC_INVALID_MEMORY_ACCESS);
+
+    execute(code, "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"_hex);
+    EXPECT_STATUS(EVMC_INVALID_MEMORY_ACCESS);
+}
+
+TEST_P(evm, eof1_dataloadn)
+{
+    // Data instructions are not implemented in Advanced.
+    if (is_advanced())
+        return;
+
+    rev = EVMC_CANCUN;
+    const auto data = bytes(8, 0x0) + bytes(8, 0x11) + bytes(8, 0x22) + bytes(8, 0x33) +
+                      bytes(8, 0xaa) + bytes(8, 0xbb) + bytes(8, 0xcc) + bytes(8, 0xdd) +
+                      bytes(8, 0xee);
+
+    auto code = eof1_bytecode(bytecode(OP_DATALOADN) + Opcode(0) + Opcode(0) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000111111111111111122222222222222223333333333333333"_hex);
+
+    code = eof1_bytecode(bytecode(OP_DATALOADN) + Opcode(0) + Opcode(1) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "aaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbccccccccccccccccdddddddddddddddd"_hex);
+}
+
+TEST_P(evm, eof1_datasize)
+{
+    // Data instructions are not implemented in Advanced.
+    if (is_advanced())
+        return;
+
+    rev = EVMC_CANCUN;
+
+    // no data section
+    auto code = eof1_bytecode(bytecode(OP_DATASIZE) + ret_top(), 2);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000000"_hex);
+
+    bytes data = {0x0};
+    code = eof1_bytecode(bytecode(OP_DATASIZE) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000001"_hex);
+
+    data = bytes(32, 0x0);
+    code = eof1_bytecode(bytecode(OP_DATASIZE) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000020"_hex);
+
+    data = bytes(64, 0x0);
+    code = eof1_bytecode(bytecode(OP_DATASIZE) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000040"_hex);
+
+    data = bytes(80, 0x0);
+    code = eof1_bytecode(bytecode(OP_DATASIZE) + ret_top(), 2, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000050"_hex);
+}
+
+TEST_P(evm, eof1_datacopy)
+{
+    // Data instructions are not implemented in Advanced.
+    if (is_advanced())
+        return;
+
+    rev = EVMC_CANCUN;
+    const auto data = bytes(8, 0x0) + bytes(8, 0x11) + bytes(8, 0x22) + bytes(8, 0x33) +
+                      bytes(8, 0xaa) + bytes(8, 0xbb) + bytes(8, 0xcc) + bytes(8, 0xdd);
+
+    auto code =
+        eof1_bytecode(bytecode(1) + 0 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000000"_hex);
+
+    code = eof1_bytecode(bytecode(1) + 8 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "1100000000000000000000000000000000000000000000000000000000000000"_hex);
+
+    code = eof1_bytecode(bytecode(1) + 63 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "dd00000000000000000000000000000000000000000000000000000000000000"_hex);
+
+    code = eof1_bytecode(bytecode(0) + 64 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "0000000000000000000000000000000000000000000000000000000000000000"_hex);
+
+    code = eof1_bytecode(bytecode(16) + 8 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "1111111111111111222222222222222200000000000000000000000000000000"_hex);
+
+    code = eof1_bytecode(bytecode(32) + 8 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_SUCCESS);
+    EXPECT_EQ(bytes_view(result.output_data, result.output_size),
+        "111111111111111122222222222222223333333333333333aaaaaaaaaaaaaaaa"_hex);
+
+    code = eof1_bytecode(bytecode(8) + 63 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_INVALID_MEMORY_ACCESS);
+
+    code = eof1_bytecode(bytecode(0) + 65 + 0 + OP_DATACOPY + 0 + OP_MLOAD + ret_top(), 3, data);
+    execute(code);
+    EXPECT_STATUS(EVMC_INVALID_MEMORY_ACCESS);
+}
