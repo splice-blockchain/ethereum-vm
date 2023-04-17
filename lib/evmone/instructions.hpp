@@ -1000,6 +1000,10 @@ inline TermResult returncontract(
     const auto& offset = stack[0];
     const auto& size = stack[1];
 
+    // TODO make sure kind is EVMC_CREATE3 for creation transactions
+    if (state.msg->kind != EVMC_CREATE3)
+        return {EVMC_UNDEFINED_INSTRUCTION, gas_left};
+
     if (!check_memory(gas_left, state.memory, offset, size))
         return {EVMC_OUT_OF_GAS, gas_left};
 
