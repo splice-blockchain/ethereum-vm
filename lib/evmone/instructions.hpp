@@ -1009,8 +1009,9 @@ inline TermResult returncontract(
     bytes deploy_container{header.get_container(state.original_code, deploy_container_index)};
 
     // Append (offset, size) to data section
-    append_data_section(
-        deploy_container, {&state.memory[static_cast<size_t>(offset)], static_cast<size_t>(size)});
+    if (!append_data_section(deploy_container,
+            {&state.memory[static_cast<size_t>(offset)], static_cast<size_t>(size)}))
+        return {EVMC_OUT_OF_GAS, gas_left};
 
     state.deploy_container = std::move(deploy_container);
 
