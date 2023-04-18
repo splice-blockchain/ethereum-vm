@@ -10,6 +10,7 @@
 #include "baseline.hpp"
 #include <evmone/evmone.h>
 #include <cassert>
+#include <filesystem>
 #include <iostream>
 
 namespace evmone
@@ -56,6 +57,14 @@ evmc_set_option_result set_option(evmc_vm* c_vm, char const* c_name, char const*
         vm.add_tracer(create_instruction_tracer(std::cerr));
         return EVMC_SET_OPTION_SUCCESS;
     }
+    else if (name == "stdtrace")
+    {
+        if (value == "no")
+            vm.remove_tracers();  // TODO: It removes all. Consider adding "no" value to `trace`?
+        else
+            vm.add_standard_tracer(value);
+        return EVMC_SET_OPTION_SUCCESS;
+    }
     else if (name == "histogram")
     {
         vm.add_tracer(create_histogram_tracer(std::cerr));
@@ -67,7 +76,7 @@ evmc_set_option_result set_option(evmc_vm* c_vm, char const* c_name, char const*
 }  // namespace
 
 
-inline constexpr VM::VM() noexcept
+inline VM::VM() noexcept
   : evmc_vm{
         EVMC_ABI_VERSION,
         "evmone",
@@ -78,6 +87,17 @@ inline constexpr VM::VM() noexcept
         evmone::set_option,
     }
 {}
+
+void VM::add_standard_tracer(std::string_view output_name) noexcept
+{
+    if (output_name == "stderr")
+        add_tracer(create_standard_tracer(std::cerr));
+    else  // File output
+    {
+        add_tracer(create_standard_tracer(
+            m_tracing_outputs.emplace_back(std::filesystem::path(output_name))));
+    }
+}
 
 }  // namespace evmone
 

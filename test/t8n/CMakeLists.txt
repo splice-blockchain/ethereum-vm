@@ -8,6 +8,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 add_executable(evmone-t8n)
 target_link_libraries(evmone-t8n PRIVATE evmone::statetestutils nlohmann_json::nlohmann_json)
 target_link_libraries(evmone-t8n PRIVATE evmc::evmc evmone)
+target_include_directories(evmone-t8n PRIVATE ${evmone_private_include_dir})
 target_sources(evmone-t8n PRIVATE t8n.cpp)
 
 # Provide the project version to selected source files.

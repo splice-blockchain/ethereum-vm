@@ -6,6 +6,7 @@
 #include <evmone/evmone.h>
 #include <evmone/vm.hpp>
 #include <gtest/gtest.h>
+#include <filesystem>
 
 TEST(evmone, info)
 {
@@ -52,4 +53,29 @@ TEST(evmone, set_option_cgoto)
 #else
     EXPECT_EQ(vm.set_option("cgoto", "no"), EVMC_SET_OPTION_INVALID_NAME);
 #endif
+}
+
+TEST(evmone, set_option_stdtracer)
+{
+    evmc::VM vm{evmc_create_evmone()};
+
+    EXPECT_EQ(vm.set_option("stdtrace", "stderr"), EVMC_SET_OPTION_SUCCESS);
+    const auto& evm = *static_cast<evmone::VM*>(vm.get_raw_pointer());
+    ASSERT_NE(evm.get_tracer(), nullptr);
+
+    EXPECT_EQ(vm.set_option("stdtrace", "no"), EVMC_SET_OPTION_SUCCESS);
+    ASSERT_EQ(evm.get_tracer(), nullptr);
+
+    // TODO: Find better why to create tmp file name.
+    auto trace_test_filename = "set_option_stdtracer_test_trace_file.json";
+    ASSERT_FALSE(std::filesystem::exists(trace_test_filename));
+    EXPECT_EQ(vm.set_option("stdtrace", trace_test_filename), EVMC_SET_OPTION_SUCCESS);
+    ASSERT_NE(evm.get_tracer(), nullptr);
+
+    EXPECT_EQ(vm.set_option("stdtrace", "no"), EVMC_SET_OPTION_SUCCESS);
+    ASSERT_EQ(evm.get_tracer(), nullptr);
+
+    ASSERT_TRUE(std::filesystem::exists(trace_test_filename));
+    std::filesystem::remove(trace_test_filename);
+    ASSERT_FALSE(std::filesystem::exists(trace_test_filename));
 }

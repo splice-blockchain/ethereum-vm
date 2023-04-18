@@ -68,6 +68,7 @@ public:
 
 class InstructionTracer : public Tracer
 {
+protected:
     struct Context
     {
         const uint8_t* const code;  ///< Reference to the code being executed.
@@ -149,6 +150,61 @@ public:
         m_out << std::dec;  // Set number formatting to dec, JSON does not support other forms.
     }
 };
+
+/// Standard tracer implemented to satisfy retesteth requirements
+/// Documented here: https://github.com/ethereum/tests/issues/249
+class StandardTracer : public InstructionTracer
+{
+    void on_execution_start(
+        evmc_revision /*rev*/, const evmc_message& msg, bytes_view code) noexcept override
+    {
+        m_contexts.emplace(code.data(), msg.gas);
+    }
+
+    void on_instruction_start(uint32_t pc, const intx::uint256* stack_top, int stack_height,
+        int64_t gas, const ExecutionState& state) noexcept override
+    {
+        const auto& ctx = m_contexts.top();
+
+        const auto opcode = ctx.code[pc];
+        m_out << "{";
+        m_out << R"("pc":)" << std::dec << pc;
+        m_out << R"(,"op":)" << std::dec << int{opcode};
+        m_out << R"(,"opName":")" << get_name(opcode) << '"';
+        m_out << R"(,"gas":"0x)" << std::hex << gas << '"';
+        m_out << R"("gasCost":"0x)" << std::hex << instr::gas_costs[state.rev][opcode] << '"';
+        output_stack(stack_top, stack_height);
+        m_out << R"("depth":)" << std::dec << state.msg->depth;
+        m_out << R"("refund":)" << std::dec << state.gas_refund;
+
+        // Full memory can be dumped as evmc::hex({state.memory.data(), state.memory.size()}),
+        // but this should not be done by default. Adding --tracing=+memory option would be nice.
+        m_out << R"(,"memSize":)" << std::dec << state.memory.size();
+
+        m_out << "}\n";
+    }
+
+    void on_execution_end(const evmc_result& result) noexcept override
+    {
+        const auto& ctx = m_contexts.top();
+
+        m_out << "{";
+        m_out << R"("error":)";
+        if (result.status_code == EVMC_SUCCESS)
+            m_out << R"("")";
+        else
+            m_out << '"' << result.status_code << '"';
+        m_out << R"(,"gasUsed":"0x)" << std::hex << (ctx.start_gas - result.gas_left) << '"';
+        m_out << R"(,"output":")" << evmc::hex({result.output_data, result.output_size}) << '"';
+        m_out << "}\n";
+
+        m_contexts.pop();
+    }
+
+public:
+    explicit StandardTracer(std::ostream& out) noexcept : InstructionTracer(out) {}
+};
+
 }  // namespace
 
 std::unique_ptr<Tracer> create_histogram_tracer(std::ostream& out)
@@ -159,5 +215,10 @@ std::unique_ptr<Tracer> create_histogram_tracer(std::ostream& out)
 std::unique_ptr<Tracer> create_instruction_tracer(std::ostream& out)
 {
     return std::make_unique<InstructionTracer>(out);
+}
+
+std::unique_ptr<Tracer> create_standard_tracer(std::ostream& out)
+{
+    return std::make_unique<StandardTracer>(out);
 }
 }  // namespace evmone

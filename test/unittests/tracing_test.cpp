@@ -124,6 +124,20 @@ TEST_F(tracing, three_tracers)
     EXPECT_EQ(trace(dup1(0)), "A0:PUSH1 B0:PUSH1 C0:PUSH1 A2:DUP1 B2:DUP1 C2:DUP1 ");
 }
 
+TEST_F(tracing, remove_tracer)
+{
+    vm.add_tracer(std::make_unique<OpcodeTracer>(*this, "A"));
+    vm.add_tracer(std::make_unique<OpcodeTracer>(*this, "B"));
+    vm.add_tracer(std::make_unique<OpcodeTracer>(*this, "C"));
+
+    EXPECT_EQ(trace(dup1(0)), "A0:PUSH1 B0:PUSH1 C0:PUSH1 A2:DUP1 B2:DUP1 C2:DUP1 ");
+
+    vm.remove_tracers();
+    vm.add_tracer(std::make_unique<OpcodeTracer>(*this, "D"));
+
+    EXPECT_EQ(trace(dup1(0)), "D0:PUSH1 D2:DUP1 ");
+}
+
 TEST_F(tracing, histogram)
 {
     vm.add_tracer(evmone::create_histogram_tracer(trace_stream));
@@ -306,5 +320,31 @@ TEST_F(tracing, trace_eof)
 {"pc":4,"op":1,"opName":"ADD","gas":0xf423a,"stack":["0x3","0x2"],"memorySize":0}
 {"pc":5,"op":0,"opName":"STOP","gas":0xf4237,"stack":["0x5"],"memorySize":0}
 {"error":null,"gas":0xf4237,"gasUsed":0x9,"output":""}
+)");
+}
+
+TEST_F(tracing, standard_tracer)
+{
+    vm.add_tracer(evmone::create_standard_tracer(trace_stream));
+
+    trace_stream << '\n';
+    EXPECT_EQ(trace(add(2, 3)), R"(
+{"pc":0,"op":96,"opName":"PUSH1","gas":"0xf4240""gasCost":"0x3","stack":[]"depth":0"refund":0,"memSize":0}
+{"pc":2,"op":96,"opName":"PUSH1","gas":"0xf423d""gasCost":"0x3","stack":["0x3"]"depth":0"refund":0,"memSize":0}
+{"pc":4,"op":1,"opName":"ADD","gas":"0xf423a""gasCost":"0x3","stack":["0x3","0x2"]"depth":0"refund":0,"memSize":0}
+{"error":"","gasUsed":"0x9","output":""}
+)");
+}
+
+TEST_F(tracing, standard_tracer_trace_undefined_instruction)
+{
+    vm.add_tracer(evmone::create_standard_tracer(trace_stream));
+
+    const auto code = bytecode{} + OP_JUMPDEST + "EF";
+    trace_stream << '\n';
+    EXPECT_EQ(trace(code), R"(
+{"pc":0,"op":91,"opName":"JUMPDEST","gas":"0xf4240""gasCost":"0x1","stack":[]"depth":0"refund":0,"memSize":0}
+{"pc":1,"op":239,"opName":"0xef","gas":"0xf423f""gasCost":"0xffff","stack":[]"depth":0"refund":0,"memSize":0}
+{"error":"undefined instruction","gasUsed":"0xf4240","output":""}
 )");
 }
