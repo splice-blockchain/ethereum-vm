@@ -4,6 +4,8 @@
 
 #include "eof.hpp"
 #include "baseline_instruction_table.hpp"
+// TODO: Remove this include. It's needed only to use StackSpace::limit
+#include "execution_state.hpp"
 #include "instructions_traits.hpp"
 
 #include <algorithm>
@@ -315,6 +317,9 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
         auto stack_height_required = instr::traits[opcode].stack_height_required;
         auto stack_height_change = instr::traits[opcode].stack_height_change;
 
+        auto stack_height = stack_heights[i];
+        assert(stack_height != LOC_UNVISITED);
+
         if (opcode == OP_CALLF)
         {
             const auto fid = read_uint16_be(&code[i + 1]);
@@ -322,13 +327,13 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
             if (fid >= code_types.size())
                 return EOFValidationError::invalid_code_section_index;
 
+            if (stack_height + code_types[fid].max_stack_height > evmone::StackSpace::limit)
+                return EOFValidationError::stack_overflow;
+
             stack_height_required = static_cast<int8_t>(code_types[fid].inputs);
             stack_height_change =
                 static_cast<int8_t>(code_types[fid].outputs - stack_height_required);
         }
-
-        auto stack_height = stack_heights[i];
-        assert(stack_height != LOC_UNVISITED);
 
         if (stack_height < stack_height_required)
             return EOFValidationError::stack_underflow;
@@ -603,6 +608,8 @@ std::string_view get_error_message(EOFValidationError err) noexcept
         return "unreachable_instructions";
     case EOFValidationError::stack_underflow:
         return "stack_underflow";
+    case EOFValidationError::stack_overflow:
+        return "stack_overflow";
     case EOFValidationError::invalid_code_section_index:
         return "invalid_code_section_index";
     case EOFValidationError::impossible:

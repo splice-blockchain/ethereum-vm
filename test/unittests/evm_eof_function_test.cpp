@@ -82,9 +82,12 @@ TEST_P(evm, callf_stack_overflow)
 
     rev = EVMC_CANCUN;
     const auto code =
-        bytecode{"ef0001 010008 020002 0BFF 0007 030000 00 000003FF 00000002"_hex} +  // EOF header
-        1023 * push(1) + OP_CALLF + bytecode{"0x0001"_hex} + 1021 * OP_POP + OP_RETURN +
-        2 * push(1) + 2 * OP_POP + OP_RETF;
+        bytecode{
+            "ef0001 01000c 020003 0BFF 0007 0004 030000 00 000003FF 00000001 00000001"_hex} +  // EOF
+                                                                                               // header
+        1023 * push(1) +
+        OP_CALLF + bytecode{"0x0001"_hex} + 1021 * OP_POP + OP_RETURN + push(1) + OP_CALLF +
+        bytecode{"0x0002"_hex} + OP_POP + OP_RETF + push(1) + OP_POP + OP_RETF;
 
     ASSERT_EQ(evmone::validate_eof(rev, code), evmone::EOFValidationError::success);
     execute(bytecode{code});
