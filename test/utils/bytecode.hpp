@@ -448,9 +448,15 @@ public:
     operator bytecode() const
     {
         bytecode code;
-        if constexpr (kind == OP_CREATE2 || kind == OP_CREATE3)
+        if constexpr (kind == OP_CREATE2)
             code += m_salt;
-        code += m_input_size + m_input + m_value + kind;
+        else if constexpr (kind == OP_CREATE3)
+            code += m_input_size + m_input + m_salt;
+
+        if constexpr (kind != OP_CREATE3)
+            code += m_input_size + m_input;
+
+        code += m_value + kind;
         if constexpr (kind == OP_CREATE3)
             code += bytecode{bytes{m_container_index}};  // immediate argument
         return code;

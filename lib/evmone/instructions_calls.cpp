@@ -195,9 +195,9 @@ Result create3(StackTop stack, int64_t gas_left, ExecutionState& state, code_ite
     const auto initcontainer = eof_header.get_container(container, initcontainer_index);
 
     const auto endowment = stack.pop();
+    const auto salt = stack.pop();
     const auto input_offset_u256 = stack.pop();
     const auto input_size_u256 = stack.pop();
-    const auto salt = stack.pop();
 
     stack.push(0);  // Assume failure.
     state.return_data.clear();
