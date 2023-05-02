@@ -900,6 +900,22 @@ inline code_iterator swapn(StackTop stack, ExecutionState& state, code_iterator 
     return pos + 2;
 }
 
+inline Result dataload(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
+{
+    auto& index = stack.top();
+
+    if (state.data.size() < 32 || (state.data.size() - 32) < index)
+        return {EVMC_INVALID_MEMORY_ACCESS, gas_left};  // TODO: Introduce EVMC_INVALID_DATA_ACCESS
+
+    const auto begin = static_cast<size_t>(index);
+    uint8_t data[32] = {};
+    for (size_t i = 0; i < 32; ++i)
+        data[i] = state.data[begin + i];
+
+    index = intx::be::load<uint256>(data);
+    return {EVMC_SUCCESS, gas_left};
+}
+
 template <size_t NumTopics>
 inline Result log(StackTop stack, int64_t gas_left, ExecutionState& state) noexcept
 {
