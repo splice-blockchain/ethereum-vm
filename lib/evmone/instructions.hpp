@@ -63,6 +63,11 @@ inline constexpr int64_t num_words(uint64_t size_in_bytes) noexcept
     return static_cast<int64_t>((size_in_bytes + (word_size - 1)) / word_size);
 }
 
+inline constexpr int64_t copy_cost(uint64_t size_in_bytes) noexcept
+{
+    return 3 * num_words(size_in_bytes);
+}
+
 /// Grows EVM memory and checks its cost.
 ///
 /// This function should not be inlined because this may affect other inlining decisions:
@@ -435,8 +440,8 @@ inline Result calldatacopy(StackTop stack, int64_t gas_left, ExecutionState& sta
     auto s = static_cast<size_t>(size);
     auto copy_size = std::min(s, state.msg->input_size - src);
 
-    const auto copy_cost = num_words(s) * 3;
-    if ((gas_left -= copy_cost) < 0)
+    const auto calldata_copy_cost = copy_cost(s);
+    if ((gas_left -= calldata_copy_cost) < 0)
         return {EVMC_OUT_OF_GAS, gas_left};
 
     if (copy_size > 0)
@@ -470,8 +475,8 @@ inline Result codecopy(StackTop stack, int64_t gas_left, ExecutionState& state) 
     const auto s = static_cast<size_t>(size);
     const auto copy_size = std::min(s, code_size - src);
 
-    const auto copy_cost = num_words(s) * 3;
-    if ((gas_left -= copy_cost) < 0)
+    const auto code_copy_cost = copy_cost(s);
+    if ((gas_left -= code_copy_cost) < 0)
         return {EVMC_OUT_OF_GAS, gas_left};
 
     // TODO: Add unit tests for each combination of conditions.
@@ -521,8 +526,8 @@ inline Result extcodecopy(StackTop stack, int64_t gas_left, ExecutionState& stat
         return {EVMC_OUT_OF_GAS, gas_left};
 
     const auto s = static_cast<size_t>(size);
-    const auto copy_cost = num_words(s) * 3;
-    if ((gas_left -= copy_cost) < 0)
+    const auto code_copy_cost = copy_cost(s);
+    if ((gas_left -= code_copy_cost) < 0)
         return {EVMC_OUT_OF_GAS, gas_left};
 
     if (state.rev >= EVMC_BERLIN && state.host.access_account(addr) == EVMC_ACCESS_COLD)
@@ -948,8 +953,8 @@ inline Result datacopy(StackTop stack, int64_t gas_left, ExecutionState& state) 
     if (state.data.size() < s || state.data.size() - s < data_index)
         return {EVMC_INVALID_MEMORY_ACCESS, gas_left};
 
-    const auto copy_cost = num_words(s) * 3;
-    if ((gas_left -= copy_cost) < 0)
+    const auto data_copy_cost = copy_cost(s);
+    if ((gas_left -= data_copy_cost) < 0)
         return {EVMC_OUT_OF_GAS, gas_left};
 
     if (s > 0)
