@@ -6,6 +6,7 @@
 #include "baseline_instruction_table.hpp"
 #include "instructions_traits.hpp"
 
+#include <intx/intx.hpp>
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -49,8 +50,19 @@ size_t eof_header_size(const EOFSectionHeaders& headers) noexcept
 
 EOFValidationError get_section_missing_error(uint8_t section_id) noexcept
 {
-    return static_cast<EOFValidationError>(
-        static_cast<uint8_t>(EOFValidationError::header_terminator_missing) + section_id);
+    switch (section_id)
+    {
+    case TERMINATOR:
+        return EOFValidationError::header_terminator_missing;
+    case TYPE_SECTION:
+        return EOFValidationError::type_section_missing;
+    case CODE_SECTION:
+        return EOFValidationError::code_section_missing;
+    case DATA_SECTION:
+        return EOFValidationError::data_section_missing;
+    default:
+        intx::unreachable();
+    }
 }
 
 std::variant<EOFSectionHeaders, EOFValidationError> validate_eof_headers(bytes_view container)
@@ -566,8 +578,6 @@ std::string_view get_error_message(EOFValidationError err) noexcept
         return "type_section_missing";
     case EOFValidationError::code_section_missing:
         return "code_section_missing";
-    case EOFValidationError::unknown_section_id:
-        return "unknown_section_id";
     case EOFValidationError::data_section_missing:
         return "data_section_missing";
     case EOFValidationError::zero_section_size:
