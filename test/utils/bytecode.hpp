@@ -97,10 +97,9 @@ inline bytecode eof_header(uint8_t version, uint16_t code_size, uint16_t max_sta
     out += "01" + big_endian(uint16_t{4});  // type header
     out += "02"_hex + big_endian(uint16_t{1}) + big_endian(code_size);
 
-    out += "04" + big_endian(data_size);
-
     if (embedded_container_size != 0)
         out += "030001"_hex + big_endian(embedded_container_size);
+    out += "04" + big_endian(data_size);
 
     out += "00";
     out += "0000"_hex + big_endian(max_stack_height);  // type section
@@ -122,7 +121,7 @@ inline bytecode eof1_bytecode(bytecode code, uint16_t max_stack_height = 0, byte
     return eof1_header(static_cast<uint16_t>(code.size()), max_stack_height,
                static_cast<uint16_t>(data.size()),
                static_cast<uint16_t>(embedded_container.size())) +
-           code + data + embedded_container;
+           code + embedded_container + data;
 }
 
 inline bytecode push(bytes_view data)

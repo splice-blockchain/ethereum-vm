@@ -100,10 +100,10 @@ std::variant<EOFSectionHeaders, EOFValidationError> validate_eof_headers(bytes_v
         {
             section_id = *it++;
 
-            // If TERMINATOR is expected, CONTAINER_SECTION is also allowed, because
+            // If DATA_SECTION is expected, CONTAINER_SECTION is also allowed, because
             // container section is optional.
             if (section_id != expected_section_id &&
-                (expected_section_id != TERMINATOR || section_id != CONTAINER_SECTION))
+                (expected_section_id != DATA_SECTION || section_id != CONTAINER_SECTION))
                 return get_section_missing_error(expected_section_id);
 
             switch (section_id)
@@ -143,7 +143,7 @@ std::variant<EOFSectionHeaders, EOFValidationError> validate_eof_headers(bytes_v
                     return EOFValidationError::zero_section_size;
                 if (section_num > CONTAINER_SECTION_NUMBER_LIMIT)
                     return EOFValidationError::too_many_container_sections;
-                expected_section_id = TERMINATOR;
+                expected_section_id = DATA_SECTION;
                 state = State::section_size;
                 break;
             }
@@ -524,10 +524,13 @@ std::variant<EOF1Header, EOFValidationError> validate_eof1(  // NOLINT(misc-no-r
 size_t EOF1Header::data_size_position() const noexcept
 {
     const auto num_code_sections = code_sizes.size();
-    return std::size(MAGIC) + 1 +     // magic + version
-           3 +                        // type section kind + size
-           3 + 2 * num_code_sections  // code sections kind + count + sizes
-           + 1;                       // data section kind
+    const auto num_container_sections = container_sizes.size();
+    return std::size(MAGIC) + 1 +       // magic + version
+           3 +                          // type section kind + size
+           3 + 2 * num_code_sections +  // code sections kind + count + sizes
+           // container sections kind + count + sizes
+           (num_container_sections != 0 ? 3 + 2 * num_container_sections : 0) +
+           1;  // data section kind
 }
 
 bool is_eof_container(bytes_view container) noexcept
@@ -611,10 +614,8 @@ bool append_data_section(bytes& container, bytes_view aux_data)
     if (new_data_size > std::numeric_limits<uint16_t>::max())
         return false;
 
-    // Insert position is before first embedded container, or at the end if there're none.
-    const auto insert_pos =
-        header.container_offsets.empty() ? container.size() : header.container_offsets[0];
-    container.insert(insert_pos, aux_data);
+    // Appending aux_data to the end, assuming data section is always the last one.
+    container.append(aux_data);
 
     // Update data size
     const auto data_size_pos = header.data_size_position();

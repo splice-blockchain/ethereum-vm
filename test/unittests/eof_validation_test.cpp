@@ -1252,12 +1252,12 @@ TEST(eof_validation, too_many_code_sections)
 TEST(eof_validation, EOF1_embedded_container)
 {
     // no data section
-    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 040000 0300010014 00 00000001 60005D000000 "
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010014 040000 00 00000001 60005D000000 "
                            "EF000101000402000100010300000000000000FE"),
         EOFValidationError::success);
 
     // with data section
-    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 040002 0300010014 00 00000001 60005D000000 "
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010014 040002 00 00000001 60005D000000 "
                            "AABB EF000101000402000100010300000000000000FE"),
         EOFValidationError::success);
 }
