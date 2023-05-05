@@ -317,11 +317,12 @@ TEST(eof_validation, EOF1_undefined_opcodes)
 
     for (uint16_t opcode = 0; opcode <= 0xff; ++opcode)
     {
-        // PUSH*, DUPN, SWAPN, RJUMP*, CALLF require immediate argument to be valid,
-        // checked in a separate test.
+        // PUSH*, DUPN, SWAPN, RJUMP*, CALLF, CREATE3, RETRUNCONTRACT require immediate argument to
+        // be valid, checked in a separate test.
         if ((opcode >= OP_PUSH1 && opcode <= OP_PUSH32) || opcode == OP_DUPN ||
             opcode == OP_SWAPN || opcode == OP_RJUMP || opcode == OP_RJUMPI ||
-            opcode == OP_RJUMPV || opcode == OP_CALLF)
+            opcode == OP_RJUMPV || opcode == OP_CALLF || opcode == OP_CREATE3 ||
+            opcode == OP_RETURNCONTRACT)
             continue;
         // These opcodes are deprecated since Cancun.
         // gas_cost table current implementation does not allow to undef instructions.
@@ -1246,4 +1247,17 @@ TEST(eof_validation, too_many_code_sections)
         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         "00000000000000000000000000000000000000000000000000000000000000000000";
     EXPECT_EQ(validate_eof(code), EOFValidationError::too_many_code_sections);
+}
+
+TEST(eof_validation, EOF1_embedded_container)
+{
+    // no data section
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 040000 0300010014 00 00000001 60005D000000 "
+                           "EF000101000402000100010300000000000000FE"),
+        EOFValidationError::success);
+
+    // with data section
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 040002 0300010014 00 00000001 60005D000000 "
+                           "AABB EF000101000402000100010300000000000000FE"),
+        EOFValidationError::success);
 }
