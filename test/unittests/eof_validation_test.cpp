@@ -616,6 +616,8 @@ TEST(eof_validation, EOF1_section_order)
     // 04 02 01
     EXPECT_EQ(validate_eof("EF0001 040002 0200010006 010004 00 AABB 60005D000000 00000000"),
         EOFValidationError::type_section_missing);
+
+    // TODO add cases with container sections
 }
 
 TEST(eof_validation, deprecated_instructions)
@@ -1260,4 +1262,57 @@ TEST(eof_validation, EOF1_embedded_container)
     EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010014 040002 00 00000001 60005D000000 "
                            "AABB EF000101000402000100010300000000000000FE"),
         EOFValidationError::success);
+
+    // garbage in container section - allowed
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010006 040000 00 00000001 60005D000000 "
+                           "aabbccddeeff"),
+        EOFValidationError::success);
+
+    // multiple container sections
+    EXPECT_EQ(
+        validate_eof("EF0001 010004 0200010006 03000200140016 040000 00 00000001 60005D000000 "
+                     "EF000101000402000100010300000000000000FE "
+                     "EF0001010004020001000103000000000000025F5FF3"),
+        EOFValidationError::success);
+
+    // Max number (256) of container sections
+    const auto containers_header = bytecode{"030100"} + 256 * bytecode{"0001"};
+    const auto containers_body = 256 * bytecode{"00"};
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006" + containers_header +
+                           "040000 00 00000001 60005D000000" + containers_body),
+        EOFValidationError::success);
+}
+
+TEST(eof_validation, EOF1_embedded_container_invalid)
+{
+    // Truncated container header
+    EXPECT_EQ(
+        validate_eof("EF0001 010004 0200010006 03"), EOFValidationError::incomplete_section_number);
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300"),
+        EOFValidationError::incomplete_section_number);
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 030001"),
+        EOFValidationError::section_headers_not_terminated);
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 03000100"),
+        EOFValidationError::incomplete_section_size);
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010014"),
+        EOFValidationError::section_headers_not_terminated);
+
+    // Zero container sections
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 030000 040000 00 00000001 60005D000000"),
+        EOFValidationError::zero_section_size);
+
+    // Container section with 0 size
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010000 040000 00 00000001 60005D000000"),
+        EOFValidationError::zero_section_size);
+
+    // Container body missing
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006 0300010014 040000 00 00000001 60005D000000"),
+        EOFValidationError::invalid_section_bodies_size);
+
+    // Too many container sections
+    const auto containers_header = bytecode{"030101"} + 257 * bytecode{"0001"};
+    const auto containers_body = 257 * bytecode{"00"};
+    EXPECT_EQ(validate_eof("EF0001 010004 0200010006" + containers_header +
+                           "040000 00 00000001 60005D000000" + containers_body),
+        EOFValidationError::too_many_container_sections);
 }
