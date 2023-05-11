@@ -215,10 +215,8 @@ EOFValidationError validate_instructions(evmc_revision rev, bytes_view code) noe
             if (i + 1 >= code.size())
                 return EOFValidationError::truncated_instruction;
 
-            const auto count = code[i + 1];
-            if (count < 1)
-                return EOFValidationError::invalid_rjumpv_count;
-            i += static_cast<size_t>(1 /* count */ + count * 2 /* tbl */);
+            const auto count = code[i + 1] + 1;
+            i += static_cast<size_t>(1 /* max_index */ + count * 2 /* tbl */);
         }
         else
             i += instr::traits[op].immediate_size;
@@ -265,8 +263,8 @@ bool validate_rjump_destinations(bytes_view code) noexcept
         }
         else if (op == OP_RJUMPV)
         {
-            const auto count = code[i + 1];
-            imm_size += size_t{1} /* count */ + count * REL_OFFSET_SIZE /* tbl */;
+            const auto count = size_t{code[i + 1]} + 1;
+            imm_size += size_t{1} /* max_index */ + count * REL_OFFSET_SIZE /* tbl */;
             const size_t post_pos = i + 1 + imm_size;
 
             for (size_t k = 0; k < count * REL_OFFSET_SIZE; k += REL_OFFSET_SIZE)
@@ -338,7 +336,7 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
 
         // Determine size of immediate, including the special case of RJUMPV.
         const size_t imm_size = (opcode == OP_RJUMPV) ?
-                                    (1 + /*count*/ size_t{code[i + 1]} * REL_OFFSET_SIZE) :
+                                    (1 + /*count*/ (size_t{code[i + 1]} + 1) * REL_OFFSET_SIZE) :
                                     instr::traits[opcode].immediate_size;
 
         // Mark immediate locations.
@@ -379,10 +377,10 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
         }
         else if (opcode == OP_RJUMPV)
         {
-            const auto count = code[i + 1];
+            const auto max_index = code[i + 1];
 
             // Insert all jump targets.
-            for (size_t k = 0; k < count; ++k)
+            for (size_t k = 0; k <= max_index; ++k)
             {
                 const auto target_rel_offset = read_int16_be(&code[i + k * REL_OFFSET_SIZE + 2]);
                 const auto target = static_cast<int32_t>(next) + target_rel_offset;
@@ -578,8 +576,6 @@ std::string_view get_error_message(EOFValidationError err) noexcept
         return "undefined_instruction";
     case EOFValidationError::truncated_instruction:
         return "truncated_instruction";
-    case EOFValidationError::invalid_rjumpv_count:
-        return "invalid_rjumpv_count";
     case EOFValidationError::invalid_rjump_destination:
         return "invalid_rjump_destination";
     case EOFValidationError::too_many_code_sections:
