@@ -327,6 +327,21 @@ std::variant<EOFValidationError, int32_t> validate_max_stack_height(
             stack_height_change =
                 static_cast<int8_t>(code_types[fid].outputs - stack_height_required);
         }
+        else if (opcode == OP_JUMPF)
+        {
+            const auto fid = read_uint16_be(&code[i + 1]);
+
+            if (fid >= code_types.size())
+                return EOFValidationError::invalid_code_section_index;
+
+            if (code_types[func_index].outputs < code_types[fid].outputs)
+                return EOFValidationError::jumpf_destination_incompatible_outputs;
+
+            stack_height_required = static_cast<int8_t>(
+                code_types[func_index].outputs + code_types[fid].inputs - code_types[fid].outputs);
+            if (stack_heights[i] > stack_height_required)
+                return EOFValidationError::non_empty_stack_on_terminating_instruction;
+        }
 
         auto stack_height = stack_heights[i];
         assert(stack_height != LOC_UNVISITED);
@@ -606,6 +621,8 @@ std::string_view get_error_message(EOFValidationError err) noexcept
         return "stack_underflow";
     case EOFValidationError::invalid_code_section_index:
         return "invalid_code_section_index";
+    case EOFValidationError::jumpf_destination_incompatible_outputs:
+        return "jumpf_destination_incompatible_outputs";
     case EOFValidationError::impossible:
         return "impossible";
     }

@@ -221,7 +221,7 @@
                                                             \
     ON_OPCODE_IDENTIFIER(OP_CALLF, callf)                   \
     ON_OPCODE_IDENTIFIER(OP_RETF, retf)                     \
-    ON_OPCODE_UNDEFINED(0xb2)                               \
+    ON_OPCODE_IDENTIFIER(OP_JUMPF, jumpf)                   \
     ON_OPCODE_UNDEFINED(0xb3)                               \
     ON_OPCODE_UNDEFINED(0xb4)                               \
     ON_OPCODE_IDENTIFIER(OP_DUPN, dupn)                     \
